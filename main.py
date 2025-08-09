@@ -14,11 +14,8 @@ def get_links():
     if not url:
         return jsonify({'error': 'Missing URL'}), 400
 
-    cookie_path = os.path.join(os.path.dirname(__file__), 'youtube_cookies.txt')
-
     ydl_opts = {
         'quiet': True,
-        'cookiefile': cookie_path,
         'skip_download': True,
         'forcejson': True,
         'noplaylist': True,
@@ -29,7 +26,6 @@ def get_links():
             info = ydl.extract_info(url, download=False)
             formats = []
 
-            # Mapping of desired resolutions
             desired_resolutions = {
                 'mp3': 'audio_only',
                 '144p': ['144p', 'tiny'],
@@ -46,7 +42,6 @@ def get_links():
                 if not f.get('url'):
                     continue
 
-                # Audio-only (MP3)
                 if f.get('vcodec') == 'none' and f.get('acodec') != 'none':
                     formats.append({
                         'format': 'mp3',
@@ -56,7 +51,6 @@ def get_links():
                     })
                     continue
 
-                # MP4 or 3GP with audio and desired resolution
                 if f.get('acodec') != 'none' and f.get('vcodec') != 'none':
                     note = f.get('format_note') or f.get('height') or ""
                     for res, keywords in desired_resolutions.items():
