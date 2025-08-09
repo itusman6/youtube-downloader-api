@@ -1,12 +1,11 @@
 from flask import Flask, request, jsonify
 import yt_dlp
 import os
-import tempfile
 
 app = Flask(__name__)
 
-# Sample YouTube cookie format (replace with your real cookies later)
-SAMPLE_COOKIE = """# Netscape HTTP Cookie File
+# Sample Netscape format cookies (you should replace with your actual cookies)
+DEFAULT_COOKIES = """# Netscape HTTP Cookie File
 # http://curl.haxx.se/rfc/cookie_spec.html
 # This is a generated file!  Do not edit.
 
@@ -37,16 +36,6 @@ SAMPLE_COOKIE = """# Netscape HTTP Cookie File
 
 """
 
-# Create temp cookie file path
-temp_cookie_path = os.path.join(tempfile.gettempdir(), "temp_cookie.txt")
-
-# Create cookie file if not exists
-if not os.path.exists(temp_cookie_path):
-    with open(temp_cookie_path, "w", encoding="utf-8") as f:
-        f.write(SAMPLE_COOKIE.strip())
-    print(f"Sample cookie file created at: {temp_cookie_path}")
-    print("⚠ Replace this file content with your actual YouTube cookies.")
-
 @app.route('/')
 def index():
     return "✅ YouTube Downloader API is Live!"
@@ -56,13 +45,26 @@ def get_links():
     url = request.args.get('url')
     if not url:
         return jsonify({'error': 'Missing URL'}), 400
+        
+    # Use Vercel's writable /tmp directory
+    temp_dir = '/tmp' if os.path.exists('/tmp') else tempfile.gettempdir()
+    cookie_path = os.path.join(temp_dir, 'youtube_cookies.txt')
+    
+    # Create proper Netscape format cookies file if it doesn't exist
+    if not os.path.exists(cookie_path):
+        try:
+            with open(cookie_path, 'w') as f:
+                f.write(DEFAULT_COOKIES)
+        except IOError as e:
+            # If we can't write cookies file, proceed without it
+            cookie_path = None        
 
     ydl_opts = {
         'quiet': True,
+        'cookiefile': cookie_path,
         'skip_download': True,
         'forcejson': True,
         'noplaylist': True,
-        'cookies': temp_cookie_path  # Use temp cookie file
     }
 
     try:
@@ -70,6 +72,7 @@ def get_links():
             info = ydl.extract_info(url, download=False)
             formats = []
 
+            # Mapping of desired resolutions
             desired_resolutions = {
                 'mp3': 'audio_only',
                 '144p': ['144p', 'tiny'],
@@ -86,6 +89,7 @@ def get_links():
                 if not f.get('url'):
                     continue
 
+                # Audio-only (MP3)
                 if f.get('vcodec') == 'none' and f.get('acodec') != 'none':
                     formats.append({
                         'format': 'mp3',
@@ -95,6 +99,7 @@ def get_links():
                     })
                     continue
 
+                # MP4 or 3GP with audio and desired resolution
                 if f.get('acodec') != 'none' and f.get('vcodec') != 'none':
                     note = f.get('format_note') or f.get('height') or ""
                     for res, keywords in desired_resolutions.items():
