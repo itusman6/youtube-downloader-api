@@ -14,7 +14,10 @@ def get_links():
     if not url:
         return jsonify({'error': 'Missing URL'}), 400
 
-    # yt_dlp options for public videos, Vercel friendly
+    # Get proxy from environment (optional)
+    proxy_url = os.environ.get('PROXY_URL', None)
+
+    # yt_dlp options
     ydl_opts = {
         'quiet': True,
         'skip_download': True,
@@ -27,8 +30,10 @@ def get_links():
                 'Chrome/120.0.0.0 Safari/537.36'
             )
         }
-        # 'proxy': 'http://your-proxy-ip:port'  # Uncomment if needed
     }
+
+    if proxy_url:
+        ydl_opts['proxy'] = proxy_url
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -51,7 +56,6 @@ def get_links():
                 if not f.get('url'):
                     continue
 
-                # Audio-only (MP3)
                 if f.get('vcodec') == 'none' and f.get('acodec') != 'none':
                     formats.append({
                         'format': 'mp3',
@@ -61,7 +65,6 @@ def get_links():
                     })
                     continue
 
-                # MP4 with audio and desired resolution
                 if f.get('acodec') != 'none' and f.get('vcodec') != 'none':
                     note = f.get('format_note') or f.get('height') or ""
                     for res, keywords in desired_resolutions.items():
@@ -85,6 +88,6 @@ def get_links():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+
 if __name__ == '__main__':
-    # Local testing
     app.run(debug=True, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
