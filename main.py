@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify
 import yt_dlp
 import os
+import tempfile
 
 app = Flask(__name__)
 
@@ -14,10 +15,7 @@ def get_links():
     if not url:
         return jsonify({'error': 'Missing URL'}), 400
 
-    # Get proxy from environment (optional)
-    proxy_url = os.environ.get('PROXY_URL', None)
-
-    # yt_dlp options
+    # Create yt_dlp options
     ydl_opts = {
         'quiet': True,
         'skip_download': True,
@@ -32,8 +30,13 @@ def get_links():
         }
     }
 
-    if proxy_url:
-        ydl_opts['proxy'] = proxy_url
+    # If cookies are stored in env, write them to temp file
+    cookie_data = os.environ.get("YT_COOKIES")
+    if cookie_data:
+        with tempfile.NamedTemporaryFile(delete=False, mode='w', encoding='utf-8') as temp:
+            temp.write(cookie_data)
+            cookie_path = temp.name
+        ydl_opts['cookiefile'] = cookie_path
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
